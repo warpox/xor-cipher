@@ -223,6 +223,42 @@ fn array_to_string(value: Vec<char>) -> String {
     string
 }
 
+#[derive(Debug, Clone)]
+struct ScoredResult(pub f32, pub u8, pub String);
+
+fn get_top(hex: String, n: usize) -> Vec<ScoredResult> {
+    let dcs = decode_hex(hex);
+    let mut results = Vec::new();
+
+    for cipher in 0..=u8::MAX {
+        let (score, ascii) = xor1x_and_score(&dcs, cipher);
+        //println!("{:?}\t|{:?}\t\t[{:?}]", score, cipher, array_to_string(ascii));
+        results.push((score, cipher, array_to_string(ascii)));
+    }
+
+    results.sort_by(|x, y| {
+        if x.0 > y.0 {
+            std::cmp::Ordering::Greater
+        } else if x.0 == y.0 {
+            std::cmp::Ordering::Equal
+        } else {
+            std::cmp::Ordering::Less
+        }
+    });
+    results.reverse();
+
+    let mut topn = Vec::new();
+    for i in 0..n {
+        topn.push(ScoredResult(
+            results[i].0,
+            results[i].1,
+            results[i].2.clone(),
+        ));
+    }
+
+    topn
+}
+
 #[derive(Debug)]
 struct Settings {
     help: bool,
@@ -231,6 +267,8 @@ struct Settings {
     eq_xor: bool,
     eq_hex_comp: Option<String>,
     find_1xor: bool,
+    find_1xor_candidates: bool,
+    file_path: Option<String>,
 }
 
 fn main() {
@@ -278,6 +316,31 @@ fn main() {
         for (score, cipher, message) in results {
             println!("{:>10?}|{:>3?}>[{:?}]", score, cipher, message);
         }
+    } else if settings.find_1xor_candidates {
+        use std::collections::HashMap;
+
+        let input = std::fs::read_to_string(settings.file_path.unwrap()).unwrap();
+        let candidates = input.split("\n");
+        let mut best_guesses = HashMap::new();
+        let cut_off = 52_000.0f32;
+
+        for line in candidates {
+            let line_string = String::from(line);
+            let top = get_top(line_string, 5);
+            best_guesses.insert(line, top);
+        }
+
+        for (k, v) in best_guesses.into_iter() {
+            let mut max = v[0].0;
+            for e in &v {
+                if e.0 > max {
+                    max = e.0;
+                }
+            }
+            if max > cut_off {
+                println!("[{k:?}] : {v:?}");
+            }
+        }
     }
 }
 
@@ -295,6 +358,8 @@ fn get_settings() -> Settings {
         eq_xor: find_switch("-exor").is_some(),
         eq_hex_comp: get_switch_field("-exor"),
         find_1xor: find_switch("-f1xor").is_some(),
+        find_1xor_candidates: find_switch("-f1xc").is_some(),
+        file_path: get_switch_field("-f1xc"),
     }
 }
 
