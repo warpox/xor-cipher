@@ -47,6 +47,32 @@ fn xor_1_vec<T: Xor>(lhs: &Vec<T>, xi: T) -> Vec<T> {
     x
 }
 
+// fn xor_r<T: Xor>(phrase: &[T], key: &[T]) -> Vec<T> {
+//     let mut ki = 0;
+//     let mut r = Vec::new();
+
+//     for p in phrase {
+//         r.push(p.xor(&key[ki]));
+
+//         ki = (ki + 1) % key.len();
+//     }
+
+//     r
+// }
+
+fn xor_r_vec<T: Xor>(phrase: &Vec<T>, key: &Vec<T>) -> Vec<T> {
+    let mut ki = 0;
+    let mut r = Vec::new();
+
+    for p in phrase {
+        r.push(p.xor(&key[ki]));
+
+        ki = (ki + 1) % key.len();
+    }
+
+    r
+}
+
 fn hex_to_raw(h: char) -> u8 {
     match h {
         'a'..='f' => h as u8 - 'a' as u8 + 10,
@@ -269,6 +295,9 @@ struct Settings {
     find_1xor: bool,
     find_1xor_candidates: bool,
     file_path: Option<String>,
+    encrypt_rxor: bool,
+    rxor_key: Option<String>,
+    encrypt_rxor_string: Option<String>
 }
 
 fn main() {
@@ -341,6 +370,16 @@ fn main() {
                 println!("[{k:?}] : {v:?}");
             }
         }
+    } else if settings.encrypt_rxor {
+        let key = settings.rxor_key.unwrap().into_bytes();
+        let phrase_file = settings.encrypt_rxor_string.unwrap();
+        let phrase = std::fs::read_to_string(phrase_file).unwrap().into_bytes();
+
+
+        let encrypted = xor_r_vec(&phrase, &key);
+        let as_hex = encode_hex(encrypted);
+
+        println!("{as_hex}");
     }
 }
 
@@ -360,6 +399,9 @@ fn get_settings() -> Settings {
         find_1xor: find_switch("-f1xor").is_some(),
         find_1xor_candidates: find_switch("-f1xc").is_some(),
         file_path: get_switch_field("-f1xc"),
+        encrypt_rxor: find_switch("-erxor").is_some(),
+        encrypt_rxor_string: get_switch_field("-i"),
+        rxor_key: get_switch_field("-erxor"),
     }
 }
 
